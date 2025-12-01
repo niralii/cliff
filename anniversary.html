@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Critical for mobile: ensures the site scales to the screen size -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Heart Mission ❤️</title>
+    <style>
+        /* FONTS */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');
+
+        /* -----------------------
+           GLOBAL VARIABLES
+           ----------------------- */
+        :root {
+            --primary: #ff4d6d;
+            --secondary: #ff8fa3;
+            --bg: #fff0f3;
+            --text: #590d22;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to top, #fff1eb 0%, #ace0f9 100%);
+            font-family: 'Poppins', sans-serif;
+            overflow-x: hidden; 
+            -webkit-tap-highlight-color: transparent; /* Removes blue tap box on Android */
+        }
+
+        /* -----------------------
+           GAME SECTION STYLES 
+           ----------------------- */
+        #game-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px 10px; /* Less padding on sides for mobile */
+            transition: opacity 1s ease;
+            position: relative;
+            z-index: 50; 
+            box-sizing: border-box;
+        }
+
+        h1 {
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 5px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.8rem; /* Slightly smaller for mobile */
+        }
+
+        p.subtitle {
+            text-align: center;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+            color: #888;
+            padding: 0 10px;
+        }
+
+        /* RESPONSIVE GAME AREA */
+        .game-area {
+            position: relative;
+            /* Responsive Logic: */
+            width: 90vw;        /* Takes 90% of screen width on mobile */
+            max-width: 350px;   /* But never gets larger than 350px */
+            aspect-ratio: 1 / 1; /* Keeps it perfectly square */
+            margin-bottom: 20px;
+            margin-top: 10px;
+        }
+
+        .heart-guide {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            fill: none; stroke: #ffccd5; stroke-width: 2; stroke-dasharray: 5, 5;
+            z-index: 0; transform: scale(0.9); transition: stroke 0.5s;
+        }
+
+        /* NODES */
+        .node {
+            position: absolute;
+            /* Relative sizing for nodes so they don't look huge on small screens */
+            width: 13%; 
+            height: 13%;
+            background-color: white; border: 2px solid #ccc; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; z-index: 2;
+            transition: all 0.3s ease;
+            font-size: clamp(1rem, 4vw, 1.5rem); /* Dynamic emoji size */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            pointer-events: auto; 
+        }
+
+        .node:hover { transform: scale(1.15); box-shadow: 0 5px 15px rgba(255, 77, 109, 0.4); border-color: var(--primary); }
+        .node.locked { background-color: #eee; color: #aaa; pointer-events: none; border-color: #ddd; cursor: default; }
+        .node.active { border-color: var(--primary); background-color: var(--primary); color: white; animation: pulse 2s infinite; }
+        .node.completed { background-color: var(--secondary); border-color: var(--secondary); color: white; }
+        .node.final-glow { background-color: #ff0040; border-color: #ff0040; box-shadow: 0 0 20px #ff0040; color: white; transform: scale(1.2) !important; }
+
+        .node-label {
+            position: absolute; top: -25px;
+            font-size: 0.7rem; font-weight: bold; white-space: nowrap;
+            color: var(--text); background: rgba(255,255,255,0.9);
+            padding: 2px 6px; border-radius: 8px;
+            pointer-events: none; 
+        }
+
+        /* GAME DRONE */
+        .drone {
+            position: absolute; 
+            font-size: clamp(2rem, 8vw, 2.5rem); /* Responsive drone size */
+            z-index: 3;
+            transition: top 1s ease-in-out, left 1s ease-in-out;
+            transform: translate(-50%, -50%) scaleX(-1);
+            pointer-events: none; 
+        }
+
+        /* MEMORY LANE */
+        .memory-lane { width: 100%; max-width: 400px; margin-top: 10px; margin-bottom: 50px; }
+        .memory-lane h3 { text-align: center; color: var(--secondary); font-family: 'Dancing Script', cursive; font-size: 1.8rem; margin-bottom: 15px; margin-top: 0; }
+        #memoryContainer { display: flex; flex-direction: column; gap: 10px; }
+        .memory-card { background: white; padding: 12px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-left: 5px solid var(--primary); animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 12px; }
+        .memory-icon { font-size: 1.4rem; background: var(--bg); width: 35px; height: 35px; display: flex; justify-content: center; align-items: center; border-radius: 50%; flex-shrink: 0; }
+        .memory-text { display: flex; flex-direction: column; }
+        .memory-theme { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: bold; }
+        .memory-line { font-size: 0.85rem; color: var(--text); font-style: italic; line-height: 1.3; }
+
+        /* MODAL - Responsive Width */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 100; }
+        .modal { background: white; padding: 20px; border-radius: 15px; width: 85%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal h2 { margin-top: 0; font-size: 1.5rem; }
+        .pickup-option { background: var(--bg); border: 1px solid var(--secondary); padding: 12px; margin: 8px 0; border-radius: 8px; cursor: pointer; transition: 0.2s; font-size: 0.95rem; }
+        .pickup-option:hover { background: var(--primary); color: white; }
+
+        /* ANIMATIONS (GAME) */
+        @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 77, 109, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 77, 109, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 77, 109, 0); } }
+        @keyframes popIn { from { opacity: 0; transform: translateY(20px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .shake-anim { animation: shake 0.8s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
+
+        /* -----------------------
+           ANNIVERSARY SCREEN STYLES
+           ----------------------- */
+        #anniversary-screen {
+            display: none; 
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: transparent; 
+            font-family: 'Dancing Script', cursive;
+            z-index: 100;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 1.5s ease;
+        }
+
+        .scene {
+            position: absolute;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 95vw; 
+            height: 20vh;
+            display: flex;
+            align-items: center;
+            justify-content: center; 
+            position: relative;
+        }
+
+        /* Media Queries for Text Sizing */
+        @media (min-width: 768px) {
+            .scene { top: 20%; }
+            .message { font-size: 6vw; } 
+            .drone-icon { font-size: 3vw; }
+        }
+
+        @media (max-width: 767px) {
+            .scene { top: 15%; } 
+            .message { font-size: 11vw; } 
+            .drone-icon { font-size: 8vw; }
+        }
+
+        .message {
+            line-height: 1.2;
+            color: #d6336c; 
+            white-space: nowrap;
+            position: relative;
+            z-index: 10;
+            text-shadow: 2px 2px 0px #fff, 0 0 15px rgba(255, 105, 180, 0.3);
+            clip-path: polygon(0 0, 0 0, 0 100%, 0 100%);
+        }
+
+        .message.animate { animation: writeText 8s linear forwards; }
+
+        .drone-wrapper {
+            position: absolute;
+            top: 60%; left: 0;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            pointer-events: none;
+            opacity: 0;
+        }
+        
+        .drone-wrapper.animate { opacity: 1; animation: flyDrone 8s linear forwards; }
+
+        .drone-icon {
+            display: block;
+            animation: hoverEffect 1s infinite alternate ease-in-out;
+            filter: drop-shadow(0px 5px 3px rgba(0,0,0,0.1));
+            transform: scaleX(-1); 
+        }
+
+        .laser {
+            position: absolute; top: 50%; left: 50%;
+            width: 2px; height: 4vw; 
+            background: linear-gradient(to bottom, rgba(255, 182, 193, 0), rgba(214, 51, 108, 0.6));
+            transform: translate(-50%, 0); z-index: -1;
+        }
+
+        .heart-spark {
+            position: absolute; color: #ff6b6b; font-size: 1.5rem; pointer-events: none; opacity: 0.8;
+            animation: sparkFall 1.5s ease-out forwards;
+        }
+
+        .confetti {
+            position: absolute; font-size: 1.5rem; animation: fall linear forwards;
+            top: -50px; z-index: 5;
+        }
+
+        /* PHOTO STYLING - Responsive */
+        .memory-photo {
+            position: fixed; 
+            width: clamp(50px, 15vw, 80px); 
+            height: auto;
+            border: 3px solid white; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border-radius: 2px;
+            z-index: 2; 
+            top: -150px; 
+            left: 50%;
+            transition: all 3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes writeText { to { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); } }
+        @keyframes flyDrone { 0% { left: 0; } 100% { left: 100%; } }
+        @keyframes hoverEffect { from { transform: translateY(-4px) rotate(-2deg) scaleX(-1); } to { transform: translateY(4px) rotate(2deg) scaleX(-1); } }
+        @keyframes sparkFall { 0% { transform: translate(0, 0) scale(0.5); opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(1.2); opacity: 0; } }
+        @keyframes fall { to { transform: translateY(110vh) rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+    <!-- SCREEN 1: THE GAME -->
+    <div id="game-screen">
+        <h1>Mission: Heart <span style="font-size:0.8em">🚁</span></h1>
+        <p class="subtitle">Guide the drone to unlock the heart by clicking the emojis.</p>
+
+        <div class="game-area" id="gameArea">
+            <svg class="heart-guide" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <path d="M50 90 C 10 70 0 35 25 20 C 40 10 50 25 50 25 C 50 25 60 10 75 20 C 100 35 90 70 50 90 Z" />
+            </svg>
+            <div class="drone" id="gameDrone">🚁</div>
+        </div>
+
+        <div class="memory-lane">
+            <h3>Our Story So Far...</h3>
+            <div id="memoryContainer">
+                <!-- Memory Cards -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <h2 id="modalTitle">Topic</h2>
+            <p>Select your line:</p>
+            <div id="modalOptions"></div>
+        </div>
+    </div>
+
+    <!-- SCREEN 2: ANNIVERSARY FINALE -->
+    <div id="anniversary-screen">
+        <div class="scene">
+            <div class="message" id="anniMessage">Happy Second Anniversary</div>
+            <div class="drone-wrapper" id="anniDroneWrapper">
+                <div class="drone-icon">🚁</div>
+                <div class="laser"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ============================
+           GAME LOGIC
+           ============================ */
+        const gameData = [
+            {
+                id: 1, theme: "F1", icon: "🏎️", 
+                top: 90, left: 50,
+                lines: ["Are you a DRS zone? Because you make me go faster.", "My heart races like it's lights out."]
+            },
+            {
+                id: 2, theme: "Coffee", icon: "☕",
+                top: 65, left: 20,
+                lines: ["Words cannot espresso how much you bean to me.", "You keep me grounded and perked up."]
+            },
+            {
+                id: 3, theme: "Traveling", icon: "✈️",
+                top: 35, left: 5,
+                lines: ["Are you a passport? I want to go everywhere with you.", "I get lost in your eyes."]
+            },
+            {
+                id: 4, theme: "Robotics", icon: "🤖",
+                top: 15, left: 25,
+                lines: ["You turn me on in precise increments.", "My love for you is hard-coded."]
+            },
+            {
+                id: 5, theme: "Cars", icon: "🚗",
+                top: 15, left: 75,
+                lines: ["Are you a turbo? You've got me spinning.", "I'd drive a thousand miles for you."]
+            },
+            {
+                id: 6, theme: "Bikes", icon: "🏍️",
+                top: 35, left: 95,
+                lines: ["You make my heart wheelie fast.", "I want you on the back of my bike."]
+            },
+            {
+                id: 7, theme: "Startups", icon: "🚀",
+                top: 65, left: 80,
+                lines: ["Are you a unicorn? You're one of a kind.", "I want 100% equity in your heart."]
+            },
+            {
+                id: 8, theme: "Finance", icon: "📈",
+                top: 25, left: 50, 
+                lines: ["You're my best asset.", "My interest in you compounds daily."]
+            }
+        ];
+
+        let currentLevel = 0;
+        const gameArea = document.getElementById('gameArea');
+        const gameDrone = document.getElementById('gameDrone');
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalOptions = document.getElementById('modalOptions');
+        const memoryContainer = document.getElementById('memoryContainer');
+
+        function initGame() {
+            gameData.forEach((nodeData, index) => {
+                const node = document.createElement('div');
+                node.className = `node ${index === 0 ? 'active' : 'locked'}`;
+                node.id = `node-${index}`;
+                
+                // --- POSITIONING LOGIC ---
+                // We use percentages, but we need to offset by half the node size to center it.
+                // In CSS, node is 13% width. So we offset by 6.5%.
+                node.style.top = `calc(${nodeData.top}% - 6.5%)`; 
+                node.style.left = `calc(${nodeData.left}% - 6.5%)`;
+                
+                node.innerHTML = nodeData.icon;
+                
+                const label = document.createElement('div');
+                label.className = 'node-label';
+                label.innerText = nodeData.theme;
+                node.appendChild(label);
+
+                node.addEventListener('click', () => {
+                    if (index === currentLevel) openModal(nodeData);
+                });
+                gameArea.appendChild(node);
+            });
+            moveDroneTo(0);
+        }
+
+        function moveDroneTo(index) {
+            const data = gameData[index];
+            gameDrone.style.top = `${data.top}%`;
+            gameDrone.style.left = `${data.left}%`;
+        }
+
+        function openModal(data) {
+            modalTitle.innerText = `${data.icon} ${data.theme}`;
+            modalOptions.innerHTML = ''; 
+            data.lines.forEach(line => {
+                const btn = document.createElement('div');
+                btn.className = 'pickup-option';
+                btn.innerText = line;
+                btn.onclick = () => selectLine(data.theme, line);
+                modalOptions.appendChild(btn);
+            });
+            modalOverlay.style.display = 'flex';
+        }
+
+        function selectLine(theme, line) {
+            modalOverlay.style.display = 'none';
+
+            // Memory Lane
+            const nodeInfo = gameData.find(g => g.theme === theme);
+            const card = document.createElement('div');
+            card.className = 'memory-card';
+            card.innerHTML = `
+                <div class="memory-icon">${nodeInfo.icon}</div>
+                <div class="memory-text">
+                    <span class="memory-theme">${theme}</span>
+                    <span class="memory-line">"${line}"</span>
+                </div>
+            `;
+            memoryContainer.appendChild(card);
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+
+            // Complete Level
+            const currentNode = document.getElementById(`node-${currentLevel}`);
+            currentNode.classList.remove('active');
+            currentNode.classList.add('completed');
+            currentNode.innerHTML = '❤️';
+
+            currentLevel++;
+
+            if (currentLevel < gameData.length) {
+                const nextNode = document.getElementById(`node-${currentLevel}`);
+                nextNode.classList.remove('locked');
+                nextNode.classList.add('active');
+                moveDroneTo(currentLevel);
+            } else {
+                moveDroneTo(currentLevel - 1); 
+                triggerFinaleTransition();
+            }
+        }
+
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) modalOverlay.style.display = 'none';
+        });
+
+        function triggerFinaleTransition() {
+            const nodes = document.querySelectorAll('.node');
+            nodes.forEach(n => n.classList.add('final-glow'));
+            
+            document.querySelector('.heart-guide').style.stroke = '#ff0055';
+            document.querySelector('.heart-guide').style.filter = 'drop-shadow(0 0 5px red)';
+
+            const gameScreen = document.getElementById('game-screen');
+            gameScreen.classList.add('shake-anim');
+
+            setTimeout(() => {
+                gameScreen.style.opacity = '0'; 
+                setTimeout(() => {
+                    gameScreen.style.display = 'none'; 
+                    startAnniversarySequence(); 
+                }, 1000);
+            }, 2000);
+        }
+
+        /* ============================
+           ANNIVERSARY LOGIC
+           ============================ */
+        
+        // Define images here
+        const myImages = [
+            'images/1.jfif', 'images/2.jfif', 'images/3.jfif', 'images/4.jfif', 'images/5.jfif',
+            'images/6.jfif', 'images/7.jfif', 'images/8.jfif', 'images/9.jfif', 'images/10.jfif',
+            'images/11.jfif', 'images/12.jfif', 'images/13.jfif', 'images/14.jfif', 'images/15.jfif',
+            'images/16.jfif', 'images/17.jfif', 'images/18.jfif', 'images/19.jfif', 'images/20.jfif',
+            'images/21.jfif', 'images/22.jfif', 'images/23.jfif', 'images/24.jfif', 'images/25.jfif'
+        ];
+
+        function startAnniversarySequence() {
+            const anniScreen = document.getElementById('anniversary-screen');
+            const message = document.getElementById('anniMessage');
+            const droneWrapper = document.getElementById('anniDroneWrapper');
+
+            anniScreen.style.display = 'block';
+            
+            // Allow render, then fade in
+            setTimeout(() => {
+                anniScreen.style.opacity = '1';
+                message.classList.add('animate');
+                droneWrapper.classList.add('animate');
+
+                let animationActive = true;
+                
+                // 1. Spark Logic
+                function createHeartSparks() {
+                    if (!animationActive) return;
+                    const rect = droneWrapper.getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 1.5;
+
+                    const heart = document.createElement('div');
+                    heart.classList.add('heart-spark');
+                    heart.innerHTML = '❤️';
+                    
+                    const tx = (Math.random() - 0.5) * 40 + 'px'; 
+                    const ty = (Math.random() * 60 + 20) + 'px';
+                    heart.style.setProperty('--tx', tx);
+                    heart.style.setProperty('--ty', ty);
+                    heart.style.fontSize = (Math.random() * 10 + 10) + 'px';
+                    heart.style.left = centerX + 'px';
+                    heart.style.top = centerY + 'px';
+                    document.body.appendChild(heart);
+                    setTimeout(() => heart.remove(), 1500);
+                }
+
+                let heartInterval = setInterval(createHeartSparks, 60);
+
+                // 2. Timeline: Stop drone, start confetti & photos
+                setTimeout(() => {
+                    animationActive = false;
+                    clearInterval(heartInterval);
+                    document.querySelector('.laser').style.display = 'none';
+                    
+                    launchConfetti();
+                    
+                    // Small delay before photos start popping
+                    setTimeout(createHeartCollage, 1000);
+
+                }, 8000);
+
+            }, 100);
+        }
+
+        function launchConfetti() {
+            const shapes = ['❤️', '💖', '✨', '💕'];
+            for (let i = 0; i < 50; i++) {
+                const conf = document.createElement('div');
+                conf.classList.add('confetti');
+                conf.innerHTML = shapes[Math.floor(Math.random() * shapes.length)];
+                conf.style.left = Math.random() * 100 + 'vw';
+                conf.style.animationDuration = (Math.random() * 3 + 3) + 's';
+                conf.style.fontSize = (Math.random() * 20 + 20) + 'px';
+                document.body.appendChild(conf);
+            }
+        }
+
+        function createHeartCollage() {
+            const numberOfPhotos = 32; 
+            const centerX = window.innerWidth / 2;
+            
+            // Responsive Vertical Position
+            const isMobile = window.innerWidth < 768;
+            const centerY = window.innerHeight * (isMobile ? 0.65 : 0.60);
+            
+            // Responsive Scale
+            const minDimension = Math.min(window.innerWidth, window.innerHeight);
+            const divisor = isMobile ? 35 : 45; 
+            const scale = minDimension / divisor;
+
+            for (let i = 0; i < numberOfPhotos; i++) {
+                setTimeout(() => {
+                    const img = document.createElement('img');
+                    img.classList.add('memory-photo');
+                    
+                    if (myImages.length > 0) {
+                        img.src = myImages[i % myImages.length];
+                    } else {
+                        img.src = `https://picsum.photos/100/100?random=${i}`;
+                    }
+
+                    img.onerror = function() {
+                        this.src = `https://picsum.photos/100/100?random=${i}`;
+                    };
+
+                    document.body.appendChild(img);
+
+                    // Heart Formula
+                    const t = (i / numberOfPhotos) * Math.PI * 2;
+                    let x = 16 * Math.pow(Math.sin(t), 3);
+                    let y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+
+                    // Offset logic
+                    const halfImgWidth = isMobile ? 25 : 40;
+                    const finalLeft = centerX + (x * scale) - halfImgWidth;
+                    const finalTop = centerY + (y * scale) - halfImgWidth;
+                    const rot = (Math.random() * 30) - 15;
+
+                    requestAnimationFrame(() => {
+                        img.style.left = finalLeft + 'px';
+                        img.style.top = finalTop + 'px';
+                        img.style.transform = `rotate(${rot}deg)`;
+                    });
+
+                }, i * 400); 
+            }
+        }
+
+        // Start Game
+        initGame();
+
+    </script>
+</body>
+</html>
